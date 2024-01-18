@@ -31,44 +31,47 @@ from PIL import Image
 
 load_dotenv()
 
-df = pd.read_csv('current_yelp_reviews.csv')
+df = pd.read_csv('yelp_reviews.csv')
 
-print(df)
+# ---------- Highlighting frequent words ---------- #
 
-# ---------- Streamlit application ---------- #
+# Word Frequency Analysis
+all_words = [word for tokens in df['tokens'] for word in tokens]
+word_freq = Counter(all_words)
 
-def resize_image(image_path, width, height):
-    image = Image.open(image_path)
-    resized_image = image.resize((width, height))
-    return resized_image
+# N-gram Analysis
+bigrams = ngrams(all_words, 2)
+bigram_freq = Counter(bigrams)
 
-def main():
-    st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
-    
-    st.sidebar.markdown("Select a city and a restaurant to generate a review.")
-    city = st.sidebar.selectbox("City", sorted(df['location'].unique()))
-    
-    # Dictionary mapping city names to image filenames
-    city_images = {
-        'New Orleans': 'resources/new-orleans.jpg',
-        'New York City': 'resources/new-york.jpg',
-        'Chicago': 'resources/chicago.jpg',
-        'Los Angeles': 'resources/los-angeles.jpg',
-        'San Francisco': 'resources/san-francisco.jpg',
-        'Philadelphia': 'resources/philadelphia.jpg',
-        'Las Vegas': 'resources/las-vegas.jpg',
-        'Houston': 'resources/houston.jpg',
-        'Phoenix': 'resources/phoenix.jpg',
-        'Miami': 'resources/miami.jpg'
-    }
-    
-    # Display image based on selected city
-    if city in city_images:
-        image_filename = city_images[city]
-        resized_image = resize_image(image_filename, 1920, 1080)
-        st.image(resized_image, caption=city)
-    else:
-        st.write("Image not found for selected city.")
-    
-if __name__ == '__main__':
-    main()
+# Tri-gram Analysis
+trigrams = ngrams(all_words, 3)
+trigram_freq = Counter(trigrams)
+
+# ---------- Topic Modelling ---------- #
+
+# We convert the tokens into tuples where we'll have the word index (its placement on the map) and its frequency
+id2word = corpora.Dictionary(df['tokens'])
+corpus = [id2word.doc2bow(text) for text in df['tokens']]
+
+lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus,
+                                            id2word=id2word,
+                                            num_topics=10,
+                                            random_state=100,
+                                            update_every=1,
+                                            chunksize=100,
+                                            passes=10,
+                                            alpha='auto',
+                                            per_word_topics=True)
+
+import streamlit as st
+
+def display_topics(model, num_topics):
+    for i in range(num_topics):
+        words = model.show_topic(i)
+        st.write(f"Topic {i+1}:")
+        st.write(", ".join([word[0] for word in words]))
+
+st.title("Restaurant Review Analysis")
+
+st.header("Review Topics")
+display_topics(lda_model, 10)

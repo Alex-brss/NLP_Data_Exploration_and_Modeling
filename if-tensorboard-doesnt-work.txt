@@ -1,0 +1,3 @@
+tensorboard --logdir=./runs # to check it works
+lsof -i :6006 # Check the port_number
+kill -9 PID if it is already used

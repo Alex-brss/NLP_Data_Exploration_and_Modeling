@@ -18,16 +18,16 @@ import numpy as np
 import tensorflow as tf
 import gensim.downloader as api
 import tensorflow_hub as hub
+import nlpaug.augmenter.word as naw
+import random
 
 from torch.utils.tensorboard import SummaryWriter
-from scipy.spatial.distance import euclidean
-from scipy.spatial.distance import cosine
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.util import ngrams
 from textblob import TextBlob
 from collections import Counter
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModel
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoTokenizer
 from langchain import PromptTemplate, LLMChain
 from dotenv import find_dotenv, load_dotenv
 from gensim.utils import simple_preprocess
@@ -44,9 +44,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from tensorflow.keras.layers import Dense, LSTM
 from tensorflow.keras.models import Model, Sequential
+from scipy.spatial.distance import euclidean, cosine
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+from nlpaug.util import Action
+import torch.nn.functional as F
 
-load_dotenv()
+# Set random seed
 np.random.seed(42)
+
+# Load environment variables
+load_dotenv()
 
 # ---------- Functions ---------- #
 
@@ -105,42 +113,6 @@ def preprocessing(text):
 # Apply preprocessing and tokenisation
 df['cleaned_text'] = df['text'].apply(preprocessing)
 df['tokens'] = tokenisation(df['cleaned_text'])
-
-# # Summarisation
-
-# max_length_coef = 1.5
-# min_length_coef = 2
-
-# summariser = pipeline("summarization", model="facebook/bart-large-cnn")
-# summarised_text = df['text'].apply(lambda x: summariser(x, max_length=round(len(x)/max_length_coef), min_length=round(len(x)/min_length_coef), do_sample=False))
-# df['summarised_text'] = summarised_text.apply(lambda x: x[0]['summary_text'])
-
-# ---------- Highlighting frequent words ---------- #
-
-review_frequent_words = {}
-
-def get_frequency(restaurant_id):
-
-    # Word Frequency Analysis
-    all_words = [word for tokens in df[df['restaurant_id'] == restaurant_id]['tokens'] for word in tokens]
-    word_freq = Counter(all_words)
-
-    # N-gram Analysis
-    bigrams = ngrams(all_words, 2)
-    bigram_freq = Counter(bigrams)
-
-    # Tri-gram Analysis
-    trigrams = ngrams(all_words, 3)
-    trigram_freq = Counter(trigrams)
-
-    return [word_freq, bigram_freq, trigram_freq]
-
-for restaurant_id in df['restaurant_id']:
-    review_frequent_words[restaurant_id] = get_frequency(restaurant_id)
-
-review_frequent_words_df = pd.DataFrame.from_dict(review_frequent_words, orient='index', columns=['word_freq', 'bigram_freq', 'trigram_freq'])
-# review_frequent_words_df['word_freq'] = review_frequent_words_df['word_freq'].apply(lambda x: dict(sorted(x.items(), key=lambda item: item[1], reverse=True)))
-review_frequent_words_df
 
 # ---------- Topic Modelling ---------- #
 
@@ -206,12 +178,63 @@ df['top_topic_labels'] = df['top_topics'].apply(lambda x: label_topics(x, lda_mo
 df['topics'] = df['top_topic_labels'].apply(lambda x: topicise(x, label_dict))
 df.drop(columns=['topic_distribution', 'top_topics'], inplace=True)
 
-# ---------- Sentiment Analysis ---------- #
+# ---------- Semantic Search ---------- #
 
-# ---------- Word2Vec ---------- #
+w2v_model = gensim.models.keyedvectors.KeyedVectors.load("word2vec.model")
 
-# We train our own word2vec model
+def semantic_search(query_word, model, topn=10):
+    query_vector = model.wv[query_word]
+    all_words = model.wv.index_to_key
 
-word2vec_model = Word2Vec(sentences=df['tokens'], vector_size=100, window=5, min_count=1, workers=4)
-word2vec_model.save("yelp_reviews.model")
+    # Calculate cosine distance between query and all other words
+    distances = {word: cosine(query_vector, model.wv[word]) for word in all_words}
+    
+    # Sort words by distance (lower is more similar)
+    sorted_words = sorted(distances, key=distances.get)
 
+    # Return the topn closest words
+    return sorted_words[:topn]
+
+# Example usage
+search_results = semantic_search('wine', w2v_model)
+
+# ---------- Application ---------- #
+
+# Other features like sentiment analysis for example have been directly added in the dataframe to preserve computational time. Please see the notebook for more details.
+
+import streamlit as st
+
+st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
+city = st.sidebar.selectbox("City", sorted(df['location'].unique()))
+
+# def resize_image(image_path, width, height):
+#     image = Image.open(image_path)
+#     resized_image = image.resize((width, height))
+#     return resized_image
+
+# # Dictionary mapping city names to image filenames
+# city_images = {
+#     'New Orleans': 'resources/new-orleans.jpg',
+#     'New York City': 'resources/new-york.jpg',
+#     'Chicago': 'resources/chicago.jpg',
+#     'Los Angeles': 'resources/los-angeles.jpg',
+#     'San Francisco': 'resources/san-francisco.jpg',
+#     'Philadelphia': 'resources/philadelphia.jpg',
+#     'Las Vegas': 'resources/las-vegas.jpg',
+#     'Houston': 'resources/houston.jpg',
+#     'Phoenix': 'resources/phoenix.jpg',
+#     'Miami': 'resources/miami.jpg'
+# }
+
+# # Display image based on selected city
+# if city in city_images:
+#     image_filename = city_images[city]
+#     resized_image = resize_image(image_filename, 1920, 1080)
+#     st.image(resized_image, caption=city)
+# else:
+#     st.write("Image not found for selected city.")
+
+st.title("Restaurant Review Analysis")
+
+st.header("Quel sont les aspects les plus importants pour vous dans un restaurant?")
+topics = st.multiselect("Choisissez vos aspects", sorted(label_dict.keys()))

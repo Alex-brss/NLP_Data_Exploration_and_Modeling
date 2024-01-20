@@ -182,7 +182,21 @@ import streamlit as st
 st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
 city = st.sidebar.selectbox("City", sorted(df['location'].unique()))
 
+filtered_df = df[df['location'] == city]
+
 st.title("Restaurant Review Analysis")
 
 st.header("Quel sont les aspects les plus importants pour vous dans un restaurant?")
 topics = st.multiselect("Choisissez vos aspects", sorted(label_dict.keys()))
+
+
+
+# filtered_df = filtered_df[filtered_df['topics'].apply(lambda x: any(topic in x for topic in topics))]
+
+# filtered_selection = filtered_df['restaurant'].to_dict()
+
+# # Create a select box for the list
+# selected_item = st.selectbox("Select an item:", list(filtered_selection.keys()))
+
+# # Display information based on selection
+# st.write("Details:", filtered_selection[selected_item])

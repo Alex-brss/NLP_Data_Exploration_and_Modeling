@@ -67,21 +67,7 @@ df.dropna(subset=['text', 'rating', 'location'], inplace=True)
 
 # ---------- Preprocessing ---------- #
 
-# Translation pipeline
-translator = pipeline("translation", model="Helsinki-NLP/opus-mt-zh-en")
 stop_words = set(stopwords.words('english'))
-df['text'] = df['text'].astype(str)
-
-# Check if text contains Chinese characters
-def contains_chinese(text):
-    return bool(re.search('[\u4e00-\u9fff]', text))
-
-# Translation function (from Chinese to English)
-def translate_text(text):
-    if contains_chinese(text):
-        return translator(text)[0]['translation_text']
-    else:
-        return text
     
 # Lemmatisation & Tokenisation function
 def tokenisation(reviews, allowed_postags=["NOUN", "ADJ", "VERBS", "ADV"]):
@@ -100,23 +86,12 @@ def tokenisation(reviews, allowed_postags=["NOUN", "ADJ", "VERBS", "ADV"]):
 
     return tokens
 
-# Preprocessing function
-def preprocessing(text):
-    # Corrected spelling on lower case text
-    corrected_text = str(TextBlob(text.lower()).correct())
-
-    # Translation
-    cleaned_text = translate_text(str(corrected_text))
-
-    return cleaned_text
-
-# Apply preprocessing and tokenisation
-df['cleaned_text'] = df['text'].apply(preprocessing)
 df['tokens'] = tokenisation(df['cleaned_text'])
 
 # ---------- Topic Modelling ---------- #
 
 # We convert the tokens into tuples where we'll have the word index (its placement on the map) and its frequency
+
 id2word = corpora.Dictionary(df['tokens'])
 corpus = [id2word.doc2bow(text) for text in df['tokens']]
 
@@ -206,33 +181,6 @@ import streamlit as st
 
 st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
 city = st.sidebar.selectbox("City", sorted(df['location'].unique()))
-
-# def resize_image(image_path, width, height):
-#     image = Image.open(image_path)
-#     resized_image = image.resize((width, height))
-#     return resized_image
-
-# # Dictionary mapping city names to image filenames
-# city_images = {
-#     'New Orleans': 'resources/new-orleans.jpg',
-#     'New York City': 'resources/new-york.jpg',
-#     'Chicago': 'resources/chicago.jpg',
-#     'Los Angeles': 'resources/los-angeles.jpg',
-#     'San Francisco': 'resources/san-francisco.jpg',
-#     'Philadelphia': 'resources/philadelphia.jpg',
-#     'Las Vegas': 'resources/las-vegas.jpg',
-#     'Houston': 'resources/houston.jpg',
-#     'Phoenix': 'resources/phoenix.jpg',
-#     'Miami': 'resources/miami.jpg'
-# }
-
-# # Display image based on selected city
-# if city in city_images:
-#     image_filename = city_images[city]
-#     resized_image = resize_image(image_filename, 1920, 1080)
-#     st.image(resized_image, caption=city)
-# else:
-#     st.write("Image not found for selected city.")
 
 st.title("Restaurant Review Analysis")
 

@@ -187,6 +187,7 @@ df.drop(columns=['topic_distribution', 'top_topics'], inplace=True)
 # ---------- Application Functions ---------- #
 
 model = Word2Vec.load("word2vec.model")
+summariser = pipeline("summarization", model="facebook/bart-large-cnn")
 
 # ------------- To delete
 
@@ -257,6 +258,7 @@ import streamlit as st
 import joblib
 
 pipeline = joblib.load('review_classification_pipeline.joblib')
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 
 st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
 city = st.sidebar.selectbox("City", sorted(df['location'].unique()))
@@ -283,6 +285,15 @@ if topics:
 
         # Give a summary of the restaurant
         st.subheader("Review summary for this restaurant")
+        
+        selected_reviews = df[df['restaurant_id'] == selected_restaurant]['cleaned_text'].tolist()
+        combined_reviews = ' '.join(selected_reviews)
+
+        # Generate summary
+        summary = summarizer(combined_reviews, max_length=150, min_length=30, do_sample=False)[0]['summary_text']
+
+        st.write(summary)
+
 
         # We get the reviews for the selected restaurant
         final_reviews = filtered_df_three[filtered_df_three['restaurant_id'] == selected_restaurant]['cleaned_text'].tolist()

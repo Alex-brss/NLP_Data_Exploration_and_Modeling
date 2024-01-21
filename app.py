@@ -296,10 +296,10 @@ if topics:
             stars_rating = "⭐ "
 
             # Display the result
-            if sentiment > 2.3:
+            if sentiment > 1.3:
                 sentiment_text = "Most reviews for this restaurant are positive. You should pay them a visit!"
                 stars_rating = stars_rating + "⭐ ⭐ ⭐ ⭐"
-            elif sentiment >= 1.7 and sentiment <= 2.3:
+            elif sentiment >= 0.7 and sentiment <= 1.3:
                 sentiment_text = "Most reviews for this restaurant neutral. You shouldn't be worried but you shouldn't expect anything either."
                 stars_rating = stars_rating + "⭐ ⭐"
 

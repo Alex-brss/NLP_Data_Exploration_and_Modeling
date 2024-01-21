@@ -148,16 +148,16 @@ def topicise(labels, label_dict):
     return topics
 
 label_dict = {
-    'Quality of Food & Service' : ['service', 'food', 'restaurant', 'good', 'great'],
-    'French Aspect' : ['dinner', 'meal', 'french', 'reservation', 'little'],
-    'Atmosphere' : ['speak', 'dining', 'menu', 'experience', 'soup'],
-    'Price' : ['course', 'table', 'thing', 'life', 'party'],
-    'Special Occasions' : ['birthday', 'time', 'family', 'really', 'warm'],
-    'Ambience' : ['experience', 'overall', 'kiss', 'attentive', 'fantastic'],
-    'Dining Experience' : ['experience', 'overall', 'kiss', 'attentive', 'fantastic'],
-    'Staff' : ['year', 'last', 'time', 'first', 'second'],
-    'Menu' : ['atmosphere', 'area', 'bit', 'high', 'mummy'],
-    'Drinks' : ['way', 'incredible', 'class', 'wall', 'mood'] 
+    'Quality of Food & Service' : ['service', 'food', 'experience', 'alliance', 'wine'],
+    'Occasion Type' : ['dinner', 'night', 'place', 'spot', 'date'],
+    'Personal Celebrations' : ['time', 'first', 'birthday', 'friend', 'menu'],
+    'French Cuisine Essentials' : ['french', 'speak', 'onion', 'soup', 'life'],
+    'Ambience & Service' : ['atmosphere', 'attentive', 'implacable', 'server', 'price'],
+    'General Comfort' : ['friendly', 'absence', 'parking', 'staff', 'mood'],
+    'Dining Experience' : ['favorite', 'lovely', 'family', 'warm', 'brasserie'],
+    'Restaurant Environment' : ['table', 'kiss', 'old', 'door', 'bread'], 
+    'Menu' : ['course', 'bartender', 'tartar', 'star', 'glass'],
+    'General Reviews' : ['review', 'year', 'tonight', 'overdue', 'downside']
 }
 
 df['top_topic_labels'] = df['top_topics'].apply(lambda x: label_topics(x, lda_model))

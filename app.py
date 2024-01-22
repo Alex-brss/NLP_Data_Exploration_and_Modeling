@@ -22,6 +22,8 @@ import nlpaug.augmenter.word as naw
 import random
 import warnings
 import torch.nn.functional as F
+import streamlit as st
+import joblib
 
 from torch.utils.tensorboard import SummaryWriter
 from nltk.corpus import stopwords
@@ -148,16 +150,16 @@ def topicise(labels, label_dict):
     return topics
 
 label_dict = {
-    'Quality of Food & Service' : ['service', 'food', 'experience', 'alliance', 'wine'],
-    'Occasion Type' : ['dinner', 'night', 'place', 'spot', 'date'],
-    'Personal Celebrations' : ['time', 'first', 'birthday', 'friend', 'menu'],
-    'French Cuisine Essentials' : ['french', 'speak', 'onion', 'soup', 'life'],
-    'Ambience & Service' : ['atmosphere', 'attentive', 'implacable', 'server', 'price'],
-    'General Comfort' : ['friendly', 'absence', 'parking', 'staff', 'mood'],
-    'Dining Experience' : ['favorite', 'lovely', 'family', 'warm', 'brasserie'],
-    'Restaurant Environment' : ['table', 'kiss', 'old', 'door', 'bread'], 
-    'Menu' : ['course', 'bartender', 'tartar', 'star', 'glass'],
-    'General Reviews' : ['review', 'year', 'tonight', 'overdue', 'downside']
+    'Unforgettable Moments': ['last', 'friend', 'excellent', 'staff', 'year'],
+    'Dining Atmosphere': ['dinner', 'french', 'place', 'really', 'good'],
+    'Food & Service': ['service', 'food', 'experience', 'dining', 'absence'],
+    'Culinary Selection': ['review', 'branch', 'dish', 'never', 'door'],
+    'Ambience & Celebrations': ['first', 'time', 'birthday', 'give', 'wife'],
+    'Comfort & Class': ['beautiful', 'table', 'life', 'class', 'implacable'],
+    'Quality of establishment': ['friendly', 'course', 'small', 'establishment', 'tartar'],
+    'Venue & Occasions': ['wonderful', 'day', 'new', 'holiday', 'bartender'],
+    'Special Moments': ['birthday', 'friend', 'wife', 'inside', 'give'],
+    'Dating & Love': ['family', 'moment', 'intimate', 'warm', 'heart']
 }
 
 df['top_topic_labels'] = df['top_topics'].apply(lambda x: label_topics(x, lda_model))
@@ -166,15 +168,10 @@ df.drop(columns=['topic_distribution', 'top_topics'], inplace=True)
 
 # ---------- Application Functions ---------- #
 
-model = Word2Vec.load("word2vec.model")
-
-# pipe = pipeline("text2text-generation", model="google/flan-t5-base")
+# model = Word2Vec.load("word2vec.model")
+model = api.load('glove-twitter-50')
 
 pipe = pipeline("text2text-generation", model="mrm8488/t5-base-finetuned-summarize-news")
-
-# ------------- To delete
-
-model = api.load('glove-twitter-50') # Change to 200 when we have the time
 
 def vectorize_model(sent, model):
     vector_size = model.vector_size
@@ -189,8 +186,6 @@ def vectorize_model(sent, model):
 
 df['vectors'] = df['tokens'].apply(vectorize_model, model=model)
 
-# -------------
-
 def review_to_vector(review, model):
     words = review.split()
     word_vectors = [model[word] for word in words if word in model]
@@ -198,7 +193,7 @@ def review_to_vector(review, model):
         return np.zeros(model.vector_size)
     return np.mean(word_vectors, axis=0)
 
-def semantic_search(query, model, reviews, topn=10):
+def semantic_search(query, model, reviews):
     query_vector = review_to_vector(query, model)
 
     # Calculate similarity between query and each review
@@ -209,28 +204,19 @@ def semantic_search(query, model, reviews, topn=10):
     for review in reviews:
         review_vector = review_to_vector(review, model)
         similarity = 1 - spatial.distance.cosine(query_vector, review_vector)
-    
-        # ## 
 
-        # Find the row in the df dataframe that corresponds to the review
         row = df[df['cleaned_text'] == review]
         restaurant_id = row['restaurant_id'].values[0]
         
         if restaurant_id not in restaurant_set:
             similarities.append((review, similarity))
             restaurant_set.add(restaurant_id)
-
-        # ##
-
-        # Replace with this if this doesn't work
-            
-        # similarities.append((review, similarity))
             
     # Sort reviews by similarity
     sorted_reviews = sorted(similarities, key=lambda x: x[1], reverse=True)
 
     # Return the topn most similar reviews
-    return sorted_reviews[:topn]
+    return sorted_reviews
 
 def classify_review(review_text, review_pipeline):
     predicted_label = review_pipeline.predict([review_text])
@@ -239,9 +225,6 @@ def classify_review(review_text, review_pipeline):
 # ---------- Application ---------- #
 
 # Other features like sentiment analysis for example have been directly added in the dataframe to preserve computational time. Please see the notebook for more details.
-
-import streamlit as st
-import joblib
 
 review_pipeline = joblib.load('review_classification_pipeline.joblib')
 
@@ -255,7 +238,7 @@ st.title("Restaurant Review Analysis 👨‍🍳")
 st.header("What aspects are most important to you?")
 topics = st.multiselect("Choose your aspects", sorted(label_dict.keys()))
 
-filtered_df_two = filtered_df_one[filtered_df_one['topics'].apply(lambda x: all(topic in x for topic in topics))]
+filtered_df_two = filtered_df_one[filtered_df_one['topics'].apply(lambda x: any(topic in x for topic in topics))]
 
 if topics:
     user_query = st.text_input("What are you looking for in a restaurant?")
@@ -267,14 +250,14 @@ if topics:
         filtered_df_three = pd.concat([filtered_df_two[filtered_df_two['cleaned_text'] == review], filtered_df_three])
 
     if user_query:
-        st.write("Here is the list of the top 10 restaurants you might like. Choose one to get its general feeling and a summary about the general feeling people have about it based on its reviews.")
-        selected_restaurant = st.selectbox("Select an item:", filtered_df_three['restaurant_id'])
+        st.write("Here are some restaurants you might like. Choose one to get its general feeling and a summary about the general feeling people have about it based on its reviews.")
+        selected_restaurant = st.selectbox("Select an item:", filtered_df_three['business_name'].unique())
 
         if selected_restaurant:
             # Give a summary of the restaurant
             st.subheader("Review summary for this restaurant")
             
-            selected_reviews = df[df['restaurant_id'] == selected_restaurant]['cleaned_text'].tolist()
+            selected_reviews = df[df['business_name'] == selected_restaurant]['cleaned_text'].tolist()
             combined_reviews = ' '.join(selected_reviews)
 
             # Summary using a prompt
@@ -282,7 +265,7 @@ if topics:
             summary = pipe(prompt, do_sample=False)[0]['generated_text']
 
             # We get the reviews for the selected restaurant
-            final_reviews = filtered_df_three[filtered_df_three['restaurant_id'] == selected_restaurant]['cleaned_text'].tolist()
+            final_reviews = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['cleaned_text'].tolist()
 
             sentiments = []
 
@@ -308,3 +291,9 @@ if topics:
             st.subheader("Overall sentiment for this restaurant")
             st.write(sentiment_text)
             st.write("Our rating: ", stars_rating)
+
+            restaurant_id = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['restaurant_id'].values[0]
+            restaurant_link = f"[Link to the restaurant](https://www.yelp.com/biz/{restaurant_id})"
+            st.markdown("Link of the restaurant: " + restaurant_link, unsafe_allow_html=True)
+
+# IMPORTANT: To run the application, please use the following command: streamlit run app.py

@@ -1,6 +1,4 @@
 *.env
-arnaud-preprocessing.ipynb
-arnaud.py
 projections/events.out.tfevents.1705869196.Alexandres-MacBook-Pro.local
 projections/events.out.tfevents.1705869251.Alexandres-MacBook-Pro.local
 projections/events.out.tfevents.1705869761.Alexandres-MacBook-Pro.local
@@ -68,12 +66,14 @@ runs/embedding.ckpt-1.data-00000-of-00001
 runs/embedding.ckpt-1.index
 runs/metadata.tsv
 runs/projector_config.pbtxt
+arnaud-preprocessing.ipynb
 runs/word_embeddings_visualization/events.out.tfevents.1705358192.Alexandres-MacBook-Pro.local.94007.2
 runs/word_embeddings_visualization/events.out.tfevents.1705358309.Alexandres-MacBook-Pro.local.94370.0
 runs/word_embeddings_visualization/projector_config.pbtxt
 runs/word_embeddings_visualization/00000/default/metadata.tsv
 runs/word_embeddings_visualization/00000/default/tensors.tsv
 runs/checkpoint
+arnaud.py
 runs/embedding.ckpt-1.data-00000-of-00001
 runs/embedding.ckpt-1.index
 runs/metadata.tsv

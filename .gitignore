@@ -1,3 +1,5 @@
 *.env
 arnaud-preprocessing.ipynb
 arnaud.py
+**/projections/**
+runs/

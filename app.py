@@ -78,76 +78,7 @@ df = pd.read_csv('yelp_reviews.csv')
 df.drop_duplicates(inplace=True)
 df.dropna(subset=['text', 'rating', 'location'], inplace=True)
 
-# ---------- Preprocessing ---------- #
-
-stop_words = set(stopwords.words('english'))
-    
-# Lemmatisation & Tokenisation function
-def tokenisation(reviews, allowed_postags=["NOUN", "ADJ", "VERBS", "ADV"]):
-    nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
-
-    reviews_out = []
-    tokens = []
-
-    for review in reviews:
-        doc = nlp(review) 
-        reviews_out.append(" ".join([token.lemma_ for token in doc if token.pos_ in allowed_postags and token.lemma_ not in stop_words]))
-    
-    for text in reviews_out:
-        new = gensim.utils.simple_preprocess(text, deacc=False) # We do not remove the accent marks because we deem them important for French restaurants reviews
-        tokens.append(new)
-
-    return tokens
-
-df['tokens'] = tokenisation(df['cleaned_text'])
-
-# ---------- Topic Modelling ---------- #
-
-# We convert the tokens into tuples where we'll have the word index (its placement on the map) and its frequency
-
-id2word = corpora.Dictionary(df['tokens'])
-corpus = [id2word.doc2bow(text) for text in df['tokens']]
-
-lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus,
-                                            id2word=id2word,
-                                            num_topics=10,
-                                            random_state=100,
-                                            update_every=1,
-                                            chunksize=100,
-                                            passes=10,
-                                            alpha='auto',
-                                            per_word_topics=True)
-
-def get_topic_distribution(lda_model, bow):
-    return lda_model.get_document_topics(bow, minimum_probability=0)
-
-df['topic_distribution'] = [get_topic_distribution(lda_model, corpus[i]) for i in range(len(df))]
-
-def get_top_topics(topic_distribution, num_topics=5):
-    # Sort the topics by probability and select the top ones
-    return sorted(topic_distribution, key=lambda x: x[1], reverse=True)[:num_topics]
-
-df['top_topics'] = df['topic_distribution'].apply(lambda x: get_top_topics(x, 11 - 1))
-
-def label_topics(topic_list, lda_model):
-    labels = []
-    for topic_id, _ in topic_list:
-        # Get the top words in the topic
-        words = lda_model.show_topic(topic_id, 5)
-        # Create a label (e.g., by joining the top words)
-        label = [word for word, prob in words]
-        labels.append(label)
-    return labels
-
-def topicise(labels, label_dict):
-    topics = []
-
-    for topic_list in labels:
-        for key, value in label_dict.items():
-            if set(topic_list) == set(value):
-                topics.append(key)
-
-    return topics
+# ---------- Topics ---------- #
 
 label_dict = {
     'Unforgettable Moments': ['last', 'friend', 'excellent', 'staff', 'year'],
@@ -161,10 +92,6 @@ label_dict = {
     'Special Moments': ['birthday', 'friend', 'wife', 'inside', 'give'],
     'Dating & Love': ['family', 'moment', 'intimate', 'warm', 'heart']
 }
-
-df['top_topic_labels'] = df['top_topics'].apply(lambda x: label_topics(x, lda_model))
-df['topics'] = df['top_topic_labels'].apply(lambda x: topicise(x, label_dict))
-df.drop(columns=['topic_distribution', 'top_topics'], inplace=True)
 
 # ---------- Application Functions ---------- #
 
@@ -238,7 +165,7 @@ st.title("Restaurant Review Analysis 👨‍🍳")
 st.header("What aspects are most important to you?")
 topics = st.multiselect("Choose your aspects", sorted(label_dict.keys()))
 
-filtered_df_two = filtered_df_one[filtered_df_one['topics'].apply(lambda x: any(topic in x for topic in topics))]
+filtered_df_two = filtered_df_one[filtered_df_one['topics'].apply(lambda x: all(topic in x for topic in topics))]
 
 if topics:
     user_query = st.text_input("What are you looking for in a restaurant?")

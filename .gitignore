@@ -3,3 +3,13 @@ arnaud-preprocessing.ipynb
 arnaud.py
 **/projections/**
 runs/
+projections/checkpoint
+projections/metadata.tsv
+projections/tfidf.ckpt.data-00000-of-00001
+projections/tfidf.ckpt.index
+projections/tfidf.ckpt.meta
+projections/checkpoint
+projections/metadata.tsv
+projections/tfidf.ckpt.data-00000-of-00001
+projections/tfidf.ckpt.index
+projections/tfidf.ckpt.meta

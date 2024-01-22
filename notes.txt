@@ -1,8 +1,0 @@
-- Keep punctations like !?
-- Keep numbers? (e.g. the food was 10/10)
-
-For LDA - continue with this: https://www.youtube.com/watch?v=UEn3xHNBXJU - LOOK UP HOW WE KNOW IF THE LDA IS GOOD - maybe said in the video
-
-Questions?
-
-Que faire pour les n-grams analysis. Devrais-t-on les utiliser ensuite pour l'analyse?

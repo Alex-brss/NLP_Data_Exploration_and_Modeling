@@ -62,6 +62,23 @@ np.random.seed(42)
 # Load environment variables
 load_dotenv()
 
+api_key = os.getenv('YELP_SEARCH_API_KEY')
+headers = {'Authorization': 'Bearer ' + api_key}\
+
+# ---------- Adding link retrieval from yelp ---------- #
+
+def get_reviews(id):
+    url = f"https://api.yelp.com/v3/businesses/{id}/reviews?sort_by=yelp_sort"
+    response = requests.get(url, headers=headers)
+    reviews_data = response.json()
+    
+    try:
+        return reviews_data['reviews']
+    except:
+        review = "No reviews for this restaurant"
+        
+    return []
+
 # ---------- Functions ---------- #
 
 # Preprocessing function
@@ -78,25 +95,28 @@ df = pd.read_csv('analysed_reviews.csv')
 df.drop_duplicates(inplace=True)
 df.dropna(subset=['text', 'rating', 'location'], inplace=True)
 
+locations = sorted(df['location'].unique())
+locations.append('All')
+
 # ---------- Topics ---------- #
 
 label_dict = {
-    'Unforgettable Moments': ['last', 'friend', 'excellent', 'staff', 'year'],
-    'Dining Atmosphere': ['dinner', 'french', 'place', 'really', 'good'],
-    'Food & Service': ['service', 'food', 'experience', 'dining', 'absence'],
-    'Culinary Selection': ['review', 'branch', 'dish', 'never', 'door'],
-    'Ambience & Celebrations': ['first', 'time', 'birthday', 'give', 'wife'],
-    'Comfort & Class': ['beautiful', 'table', 'life', 'class', 'implacable'],
-    'Quality of establishment': ['friendly', 'course', 'small', 'establishment', 'tartar'],
-    'Venue & Occasions': ['wonderful', 'day', 'new', 'holiday', 'bartender'],
-    'Special Moments': ['birthday', 'friend', 'wife', 'inside', 'give'],
-    'Dating & Love': ['family', 'moment', 'intimate', 'warm', 'heart']
+    'Overall Experience': ['restaurant', 'time', 'dinner', 'first', 'friend', 'wine', 'meal', 'friendly', 'branch'],
+    'Food & Service': ['food', 'service', 'good', 'great', 'alliance', 'excellent', 'staff', 'location', 'witness'],
+    'Decor': ['place', 'nice', 'beautiful', 'table', 'area', 'space', 'bread', 'wall'],
+    'French Aspect': ['french', 'dish', 'favorite', 'spot', 'afternoon', 'lunch', 'onion', 'soup'],
+    'Coffee & Tea': ['tea', 'lovely', 'cafe', 'worth'],
+    'Drinks': ['reservation', 'drink', 'bar', 'still', 'pm', 'holiday', 'center'],
+    'Gastronomical Aspect': ['menu', 'star', 'old', 'yelp', 'minute', 'weekend', 'ally', 'appearance', 'gastro', 'item'],
+    'Parking': ['attentive', 'second', 'park'],
+    'Atmosphere': ['atmosphere', 'excited', 'week', 'door', 'couple'],
+    'Events & Parties': ['party', 'private', 'open', 'venue']
 }
 
 # ---------- Application Functions ---------- #
 
-# model = Word2Vec.load("word2vec.model")
-model = api.load('glove-twitter-50')
+model = Word2Vec.load("word2vec.model")
+# model = api.load('glove-twitter-50')
 
 pipe = pipeline("text2text-generation", model="mrm8488/t5-base-finetuned-summarize-news")
 
@@ -156,16 +176,51 @@ def classify_review(review_text, review_pipeline):
 review_pipeline = joblib.load('review_classification_pipeline.joblib')
 
 st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
-city = st.sidebar.selectbox("City", sorted(df['location'].unique()))
 
-filtered_df_one = df[df['location'] == city]
+city = st.sidebar.selectbox("City", locations)
+
+if city != 'All':
+    df = df[df['location'] == city]
 
 st.title("Restaurant Review Analysis 👨‍🍳")
 
-st.header("What aspects are most important to you?")
+st.header("Restaurant opinion")
+restaurant_link = st.text_input("Predict the overall sentiment of a restaurant. Give us the restaurant's link: ")
+
+if restaurant_link:
+    restaurant_id = restaurant_link.split("/biz/")[1].split("?")[0]
+
+    final_reviews = get_reviews(restaurant_id).tolist()
+    
+    sentiments = []
+
+    for review in final_reviews:
+        sentiments.append(classify_review(review, review_pipeline))
+
+    sentiment = np.mean(sentiments)
+
+    sentiment_text = "Most reviews for this restaurant are negative. You should visit at your own risk."
+
+    stars_rating = "⭐ "
+
+    # Display the result
+    if sentiment > 1.3:
+        sentiment_text = "Most reviews for this restaurant are positive. You should pay them a visit!"
+        stars_rating = stars_rating + "⭐ ⭐ ⭐ ⭐"
+    elif sentiment >= 0.7 and sentiment <= 1.3:
+        sentiment_text = "Most reviews for this restaurant neutral. You shouldn't be worried but you shouldn't expect anything either."
+        stars_rating = stars_rating + "⭐ ⭐"
+
+    st.subheader("Overall sentiment for this restaurant")
+    st.write(sentiment_text)
+    st.write("Our rating: ", stars_rating)
+
+st.header("Restaurant finder")
+st.subheader("What aspects are most important to you?")
+
 topics = st.multiselect("Choose your aspects", sorted(label_dict.keys()))
 
-filtered_df_two = filtered_df_one[filtered_df_one['topics'].apply(lambda x: all(topic in x for topic in topics))]
+filtered_df_two = df[df['topics'].apply(lambda x: all(topic in x for topic in topics))]
 
 if topics:
     user_query = st.text_input("What are you looking for in a restaurant?")
@@ -189,7 +244,7 @@ if topics:
 
             # Summary using a prompt
             prompt = "summarise: " + combined_reviews
-            summary = pipe(prompt, do_sample=False)[0]['generated_text']
+            summary = pipe(prompt, do_sample=False)[0]['cleaned_text']
 
             # We get the reviews for the selected restaurant
             final_reviews = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['cleaned_text'].tolist()

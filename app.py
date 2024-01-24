@@ -62,8 +62,8 @@ np.random.seed(42)
 # Load environment variables
 load_dotenv()
 
-api_key = os.getenv('YELP_SEARCH_API_KEY')
-headers = {'Authorization': 'Bearer ' + api_key}\
+api_key = 'eNtyM4MfA-kk-WDZKhLXXM1nB_yXw2Zz-9b0poe08UzdRvYbWeafBgKf5JNh4aTSFssunytdmiZtJKAGwrqrg6URFiP7r9yeffCuSoPMPqgCKbeBhGtYOw9Mox2xZXYx'
+headers = {'Authorization': 'Bearer ' + api_key}
 
 # ---------- Adding link retrieval from yelp ---------- #
 
@@ -246,6 +246,7 @@ review_pipeline = joblib.load('review_classification_pipeline.joblib')
 
 st.set_page_config(page_title="Gastonomy", page_icon="🍽️", layout="wide")
 
+st.sidebar.title("Select your city")
 city = st.sidebar.selectbox("City", locations)
 
 if city != 'All':
@@ -253,105 +254,117 @@ if city != 'All':
 
 st.title("Restaurant Review Analysis 👨‍🍳")
 
-st.header("Restaurant opinion")
-restaurant_link = st.text_input("Predict the overall sentiment of a restaurant. Give us the restaurant's link. ")
+st.header("Choose the application you wish to use")
+app_choice = st.radio("Choose your application", ('Restaurant Sentiment', 'Restaurant Finder'))
 
-if restaurant_link:
-    restaurant_id = restaurant_link.split("/biz/")[1].split("?")[0]
+if app_choice == 'Restaurant Sentiment':
 
-    final_reviews = get_reviews(restaurant_id)
-    combined_reviews = '. '.join([preprocessing(review['text']) for review in final_reviews])
+    st.header("Restaurant sentiment 🧐")
+    restaurant_link = st.text_input("Predict the overall sentiment of a restaurant. Give us the restaurant's link. ")
 
-    st.subheader("Review summary for this restaurant")
+    if restaurant_link:
+        restaurant_id = restaurant_link.split("/biz/")[1].split("?")[0]
 
-    prompt = "summarise: " + combined_reviews
-    summary = pipe(prompt, do_sample=False)[0]['generated_text']
-    st.write(str(summary).capitalize())
-    
-    sentiments = []
+        final_reviews = get_reviews(restaurant_id)
+        combined_reviews = '. '.join([preprocessing(review['text']) for review in final_reviews])
 
-    for review in final_reviews:
-        sentiments.append(classify_review(preprocessing(review['text']), review_pipeline))
+        st.subheader("Review summary for this restaurant")
 
-    sentiment = np.mean(sentiments)
+        prompt = "summarise: " + combined_reviews
+        summary = pipe(prompt, do_sample=False)[0]['generated_text']
+        st.write(str(summary).capitalize())
+        
+        sentiments = []
 
-    sentiment_text = "Most reviews for this restaurant are negative. You should visit at your own risk."
+        for review in final_reviews:
+            sentiments.append(classify_review(preprocessing(review['text']), review_pipeline))
 
-    stars_rating = "⭐ "
+        sentiment = np.mean(sentiments)
 
-    # Display the result
-    if sentiment > 1.3:
-        sentiment_text = "Most reviews for this restaurant are positive. You should pay them a visit!"
-        stars_rating = stars_rating + "⭐ ⭐ ⭐ ⭐"
-    elif sentiment >= 0.7 and sentiment <= 1.3:
-        sentiment_text = "Most reviews for this restaurant neutral. You shouldn't be worried but you shouldn't expect anything either."
-        stars_rating = stars_rating + "⭐ ⭐"
+        sentiment_text = "Most reviews for this restaurant are negative. You should visit at your own risk."
 
-    st.subheader("Overall sentiment for this restaurant")
-    st.write(sentiment_text)
-    st.write("Our rating: ", stars_rating)
+        stars_rating = "⭐ "
 
-st.header("Restaurant finder")
-st.subheader("What aspects are most important to you?")
+        # Display the result
+        if sentiment > 1.3:
+            sentiment_text = "Most reviews for this restaurant are positive. You should pay them a visit!"
+            stars_rating = stars_rating + "⭐ ⭐ ⭐ ⭐"
+        elif sentiment >= 0.7 and sentiment <= 1.3:
+            sentiment_text = "Most reviews for this restaurant neutral. You shouldn't be worried but you shouldn't expect anything either."
+            stars_rating = stars_rating + "⭐ ⭐"
 
-topics = st.multiselect("Choose your aspects", sorted(label_dict.keys()))
+        st.subheader("Overall sentiment for this restaurant")
+        st.write(sentiment_text)
+        st.write("Our rating: ", stars_rating)
 
-filtered_df_two = df[df['topics'].apply(lambda x: all(topic in x for topic in topics))]
+else:
+    st.header("Restaurant finder 🔎")
+    st.subheader("What aspects are most important to you?")
 
-if topics:
-    user_query = st.text_input("What are you looking for in a restaurant?")
-    search_results = semantic_search(user_query, model, df['cleaned_text'].tolist(), df)
+    topics = st.multiselect("Choose your aspects", sorted(label_dict.keys()))
 
-    filtered_df_three = pd.DataFrame(columns=df.columns)
+    filtered_df_two = df[df['topics'].apply(lambda x: all(topic in x for topic in topics))]
 
-    for review, similarity in search_results:
-        filtered_df_three = pd.concat([filtered_df_two[filtered_df_two['cleaned_text'] == review], filtered_df_three])
+    if topics:
+        user_query = st.text_input("What are you looking for in a restaurant?")
+        search_results = semantic_search(user_query, model, df['cleaned_text'].tolist(), df)
 
-    if user_query:
-        st.write("Here are some restaurants you might like. Choose one to get its general feeling and a summary about the general feeling people have about it based on its reviews.")
-        selected_restaurant = st.selectbox("Select an item:", filtered_df_three['business_name'].unique())
+        filtered_df_three = pd.DataFrame(columns=df.columns)
 
-        if selected_restaurant:
-            # Give a summary of the restaurant
-            st.subheader("Review summary for this restaurant")
-            
-            selected_reviews = df[df['business_name'] == selected_restaurant]['cleaned_text'].tolist()
-            combined_reviews = '. '.join(selected_reviews)
+        for review, similarity in search_results:
+            filtered_df_three = pd.concat([filtered_df_two[filtered_df_two['cleaned_text'] == review], filtered_df_three])
 
-            # Summary using a prompt
-            prompt = "summarise: " + combined_reviews
-            summary = pipe(prompt, do_sample=False)[0]['generated_text']
+        if user_query:
+            st.write("Here are some restaurants you might like. Choose one to get its general feeling and a summary about the general feeling people have about it based on its reviews.")
+            selected_restaurant = st.selectbox("Select an item:", filtered_df_three['business_name'].unique())
 
-            # We get the reviews for the selected restaurant
-            final_reviews = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['cleaned_text'].tolist()
+            if selected_restaurant:
+                # Give a summary of the restaurant
+                st.subheader("Review summary for this restaurant")
+                
+                selected_reviews = df[df['business_name'] == selected_restaurant]['cleaned_text'].tolist()
+                combined_reviews = '. '.join(selected_reviews)
 
-            sentiments = []
+                # Summary using a prompt
+                prompt = "summarise: " + combined_reviews
+                summary = pipe(prompt, do_sample=False)[0]['generated_text']
 
-            for review in final_reviews:
-                sentiments.append(classify_review(review, review_pipeline))
+                # We get the reviews for the selected restaurant
+                final_reviews = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['cleaned_text'].tolist()
 
-            sentiment = np.mean(sentiments)
+                sentiments = []
 
-            sentiment_text = "Most reviews for this restaurant are negative. You should visit at your own risk."
+                for review in final_reviews:
+                    sentiments.append(classify_review(review, review_pipeline))
 
-            stars_rating = "⭐ "
+                sentiment = np.mean(sentiments)
 
-            # Display the result
-            if sentiment > 1.3:
-                sentiment_text = "Most reviews for this restaurant are positive. You should pay them a visit!"
-                stars_rating = stars_rating + "⭐ ⭐ ⭐ ⭐"
-            elif sentiment >= 0.7 and sentiment <= 1.3:
-                sentiment_text = "Most reviews for this restaurant neutral. You shouldn't be worried but you shouldn't expect anything either."
-                stars_rating = stars_rating + "⭐ ⭐"
+                sentiment_text = "Most reviews for this restaurant are negative. You should visit at your own risk."
 
-            st.write(str(summary).capitalize())
+                stars_rating = "⭐ "
 
-            st.subheader("Overall sentiment for this restaurant")
-            st.write(sentiment_text)
-            st.write("Our rating: ", stars_rating)
+                # Display the result
+                if sentiment > 1.3:
+                    sentiment_text = "Most reviews for this restaurant are positive. You should pay them a visit!"
+                    stars_rating = stars_rating + "⭐ ⭐ ⭐ ⭐"
+                elif sentiment >= 0.7 and sentiment <= 1.3:
+                    sentiment_text = "Most reviews for this restaurant neutral. You shouldn't be worried but you shouldn't expect anything either."
+                    stars_rating = stars_rating + "⭐ ⭐"
 
-            restaurant_id = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['restaurant_id'].values[0]
-            restaurant_link = f"[Link to the restaurant](https://www.yelp.com/biz/{restaurant_id})"
-            st.markdown("Link of the restaurant: " + restaurant_link, unsafe_allow_html=True)
+                st.write(str(summary).capitalize())
+
+                st.subheader("Overall sentiment for this restaurant")
+                st.write(sentiment_text)
+                st.write("Our rating: ", stars_rating)
+
+                restaurant_id = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['restaurant_id'].values[0]
+                restaurant_link = f"[Link to the restaurant](https://www.yelp.com/biz/{restaurant_id})"
+                
+                st.markdown("🔗 Link of the restaurant: " + restaurant_link, unsafe_allow_html=True)
+                st.write("💰 Price: ", filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['business_price'].values[0])
+                location = filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['business_display_address'].values[0]
+                location = location.replace("[", "").replace("]", "").replace("'", "")
+                st.write("📍 Location: ", location)
+                st.write("📞 Phone number:", filtered_df_three[filtered_df_three['business_name'] == selected_restaurant]['business_display_phone'].values[0])
 
 # IMPORTANT: To run the application, please use the following command: streamlit run app.py

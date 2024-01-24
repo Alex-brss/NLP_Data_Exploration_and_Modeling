@@ -73,7 +73,7 @@ def preprocessing(text):
 
 # ---------- Loading the dataset ---------- #
 
-df = pd.read_csv('yelp_reviews.csv')
+df = pd.read_csv('analysed_reviews.csv')
 
 df.drop_duplicates(inplace=True)
 df.dropna(subset=['text', 'rating', 'location'], inplace=True)
